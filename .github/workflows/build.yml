@@ -1,0 +1,41 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build archive (unsigned)
+        run: |
+          xcodebuild -project AlertSim.xcodeproj \
+            -scheme AlertSim \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/AlertSim.xcarchive \
+            archive \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY=""
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/AlertSim.xcarchive/Products/Applications/AlertSim.app Payload/
+          zip -r AlertSim.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AlertSim-ipa
+          path: AlertSim.ipa
