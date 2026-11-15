@@ -81,36 +81,50 @@ struct MapView: View {
     @EnvironmentObject var store: AlertStore
     @State private var selected: Region?
 
-    private let columns = [GridItem(.adaptive(minimum: 150), spacing: 10)]
-
     var body: some View {
         NavigationStack {
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 10) {
-                    ForEach(regions) { region in
-                        let level = store.level(for: region)
-                        Button {
-                            selected = region
-                        } label: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                RoundedRectangle(cornerRadius: 4)
-                                    .fill(level.color)
-                                    .frame(height: 8)
-                                Text(region.name)
-                                    .font(.footnote.weight(.semibold))
-                                    .multilineTextAlignment(.leading)
-                                Text(level.title)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+            VStack(spacing: 12) {
+                GeometryReader { geo in
+                    let canvas = CGRect(origin: .zero, size: geo.size)
+                    ZStack {
+                        ForEach(regions) { region in
+                            if let geometry = UkraineGeometry.shapes[region.id] {
+                                let shape = RegionShape(geometry: geometry)
+                                shape
+                                    .fill(store.level(for: region).mapFill)
+                                    .contentShape(shape)
+                                    .onTapGesture { selected = region }
+                                shape
+                                    .stroke(Color.black.opacity(0.45), lineWidth: 0.8)
+                                    .allowsHitTesting(false)
                             }
-                            .frame(maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
-                            .padding(12)
-                            .glassBackground(tint: level == .clear ? nil : level.color)
                         }
-                        .buttonStyle(.plain)
+
+                        ForEach(regions) { region in
+                            if let geometry = UkraineGeometry.shapes[region.id],
+                               let label = geometry.label {
+                                Text(UkraineGeometry.shortName(region.name))
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.92))
+                                    .shadow(color: .black.opacity(0.7), radius: 1)
+                                    .position(UkraineGeometry.project(label, in: canvas))
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                    }
+                    .frame(width: geo.size.width, height: geo.size.height)
+                }
+                .padding(.horizontal)
+
+                HStack(spacing: 16) {
+                    ForEach(AlertLevel.allCases.filter { $0 != .clear }) { level in
+                        HStack(spacing: 6) {
+                            Circle().fill(level.mapFill).frame(width: 12, height: 12)
+                            Text(level.title).font(.caption)
+                        }
                     }
                 }
-                .padding()
+                .padding(.bottom, 8)
             }
             .navigationTitle("Мапа")
             .confirmationDialog(
